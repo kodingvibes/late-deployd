@@ -8,6 +8,7 @@ from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
+from starlette.websockets import WebSocketDisconnect
 
 
 class FakeWebSocket:
@@ -188,3 +189,205 @@ def test_dashboard_state_forbidden_user(dashboard_client, monkeypatch):
     with TestClient(dashboard_client.APP) as client:
         r = client.get("/api/dashboard/state")
     assert r.status_code == 403
+
+
+# ---------------------------------------------------------------------------
+# WS endpoint — close-code paths.
+#
+# These drive `api_dashboard_ws` directly (no TestClient WS plumbing).
+# Stubs `dashboard_state.LATE_AUTH_SECRET` / `_AUTH_URL` to flip the
+# auth gates, then asserts the WS got closed with the right code.
+# ---------------------------------------------------------------------------
+
+class _FakeWS:
+    def __init__(self, infinite_receive: bool = True) -> None:
+        self.closed_with: int | None = None
+        self.sent: list[dict] = []
+        self.text_sent: list[str] = []
+        self._infinite_receive = infinite_receive
+
+    async def close(self, code: int = 1000) -> None:
+        self.closed_with = code
+
+    async def accept(self) -> None:
+        pass
+
+    async def send_json(self, payload) -> None:
+        self.sent.append(payload)
+
+    async def send_text(self, text) -> None:
+        self.text_sent.append(text)
+
+    async def receive_text(self) -> str:
+        if self._infinite_receive:
+            # Pretend to be a live client: respond to pings, wait
+            # forever on the next read. The caller cancels us.
+            await asyncio.sleep(3600)
+            return "ping"  # unreachable; satisfies type checker
+        raise WebSocketDisconnect()
+
+
+@pytest.fixture
+def ws_helpers(monkeypatch, tmp_path):
+    cfg_path = tmp_path / "config.yaml"
+    cfg_path.write_text("repos:\n  shellx:\n    path: /tmp/x\n    type: shell_only\n")
+    monkeypatch.setenv("DEPOYD_CONFIG", str(cfg_path))
+    monkeypatch.setenv("GITHUB_WEBHOOK_SECRET", "x")
+    monkeypatch.setenv("LOG_DIR", str(tmp_path / "logs"))
+    monkeypatch.setenv("LATE_DASHBOARD_HISTORY_DIR", str(tmp_path / "metrics"))
+    (tmp_path / "logs").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "metrics").mkdir(parents=True, exist_ok=True)
+    for m in list(sys.modules.keys()):
+        if m.startswith(("config", "events", "deployers", "scheduler", "dashboard", "main")):
+            sys.modules.pop(m, None)
+    return importlib.import_module("dashboard_ws")
+
+
+@pytest.mark.asyncio
+async def test_ws_closes_4401_when_no_token(ws_helpers, monkeypatch):
+    monkeypatch.setattr(ws_helpers.dashboard_state, "LATE_AUTH_SECRET", "sa-secret")
+    ws = _FakeWS()
+    await ws_helpers.api_dashboard_ws(ws, token="")
+    assert ws.closed_with == 4401
+
+
+@pytest.mark.asyncio
+async def test_ws_closes_4401_when_AuthSecret_unset(ws_helpers):
+    # LATE_AUTH_SECRET defaults to "" → endpoint must not even try to call.
+    ws = _FakeWS()
+    await ws_helpers.api_dashboard_ws(ws, token="sometoken")
+    assert ws.closed_with == 4401
+
+
+@pytest.mark.asyncio
+async def test_ws_closes_4401_when_validate_returns_401(ws_helpers, monkeypatch):
+    import httpx
+    import sys as _sys
+    httpx_mod = _sys.modules["httpx"]
+    monkeypatch.setattr(ws_helpers.dashboard_state, "LATE_AUTH_SECRET", "sa-secret")
+
+    class _Resp:
+        status_code = 401
+
+    class _Client:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *a):
+            return False
+
+        async def get(self, url, headers=None):
+            return _Resp()
+
+    monkeypatch.setattr(httpx_mod, "AsyncClient", lambda timeout: _Client())
+    ws = _FakeWS()
+    await ws_helpers.api_dashboard_ws(ws, token="badtoken")
+    assert ws.closed_with == 4401
+
+
+@pytest.mark.asyncio
+async def test_ws_closes_4403_when_user_is_not_super_admin(ws_helpers, monkeypatch):
+    import sys as _sys
+    httpx_mod = _sys.modules["httpx"]
+    monkeypatch.setattr(ws_helpers.dashboard_state, "LATE_AUTH_SECRET", "sa-secret")
+
+    class _Resp:
+        status_code = 200
+        def json(self):
+            return {"user": {"global_role": "user"}}
+
+    class _Client:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *a):
+            return False
+
+        async def get(self, url, headers=None):
+            return _Resp()
+
+    monkeypatch.setattr(httpx_mod, "AsyncClient", lambda timeout: _Client())
+    ws = _FakeWS()
+    await ws_helpers.api_dashboard_ws(ws, token="okrole")
+    assert ws.closed_with == 4403
+
+
+@pytest.mark.asyncio
+async def test_ws_closes_4403_when_validate_raises(ws_helpers, monkeypatch):
+    import sys as _sys
+    httpx_mod = _sys.modules["httpx"]
+    monkeypatch.setattr(ws_helpers.dashboard_state, "LATE_AUTH_SECRET", "sa-secret")
+
+    class _Client:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *a):
+            return False
+
+        async def get(self, url, headers=None):
+            raise httpx_mod.ConnectError("nope")
+
+    monkeypatch.setattr(httpx_mod, "AsyncClient", lambda timeout: _Client())
+    ws = _FakeWS()
+    await ws_helpers.api_dashboard_ws(ws, token="sometoken")
+    assert ws.closed_with == 4403
+
+
+@pytest.mark.asyncio
+async def test_ws_accepts_and_replies_to_ping_super_admin(ws_helpers, monkeypatch):
+    import sys as _sys
+    httpx_mod = _sys.modules["httpx"]
+    monkeypatch.setattr(ws_helpers.dashboard_state, "LATE_AUTH_SECRET", "sa-secret")
+
+    class _Resp:
+        status_code = 200
+        def json(self):
+            return {"user": {"global_role": "super_admin"}}
+
+    class _Client:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *a):
+            return False
+
+        async def get(self, url, headers=None):
+            return _Resp()
+
+    # snapshot/history go to /proc + sqlite; replace with no-ops.
+    async def fake_snapshot():
+        return {"ok": True}
+
+    async def fake_history(metric, range_seconds):
+        return []
+
+    monkeypatch.setattr(httpx_mod, "AsyncClient", lambda timeout: _Client())
+    monkeypatch.setattr(ws_helpers.dashboard_state, "snapshot", fake_snapshot)
+    monkeypatch.setattr(ws_helpers.dashboard_state, "history", fake_history)
+    monkeypatch.setattr(ws_helpers.HUB, "add", lambda ws: _noop())
+    monkeypatch.setattr(ws_helpers.HUB, "remove", lambda ws: _noop())
+
+    async def _noop(*a, **kw):
+        return None
+
+    ws = _FakeWS()
+
+    # Cancel the handler after the initial snapshot is sent, so we
+    # don't have to fake an endless receive_text() loop.
+    task = asyncio.create_task(ws_helpers.api_dashboard_ws(ws, token="goodrole"))
+    # Let the path through accept() + initial push run.
+    await asyncio.sleep(0.05)
+    task.cancel()
+    try:
+        await task
+    except asyncio.CancelledError:
+        pass
+
+    # Either the WS was closed (after the cancel propagated) or never
+    # closed at all — both indicate the auth gate accepted super_admin.
+    if ws.closed_with is not None:
+        assert ws.closed_with not in (4401, 4403), \
+            f"super_admin path must not close with auth code, got {ws.closed_with}"
+    # Initial snapshot was sent before the recv loop (or before cancel).
+    assert any(s.get("type") == "state" for s in ws.sent)

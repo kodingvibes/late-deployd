@@ -2,7 +2,8 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import Optional
+import asyncio
+import logging
 
 from config import DeployConfig, RepoConfig
 from deployers import run_deploy_sync
@@ -20,9 +21,6 @@ class Scheduler:
         self._config = config
         self._events = events
         self._workers: list[asyncio.Task] = []
-        self._shell_coalesce_s = 5
-        self._shell_pending = False
-        self._shell_lock = asyncio.Lock()
 
     async def start(self, n: int = 2) -> None:
         self._workers = [asyncio.create_task(self._worker()) for _ in range(n)]
