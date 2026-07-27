@@ -6,6 +6,10 @@ nginx. Per-repo lock serializes the same repo; a global `_www_lock` serializes
 the writes under `/var/www/html/` so two micros can never race the shell
 replace.
 
+This repo is **self-hosted**: a push to `main` triggers the deploy webhook
+in `/root/.deployd/config.yaml`, which runs `scripts/self-update.sh`, which
+re-pulls this repo and `systemctl restart late-deployd`.
+
 See `tests/` for the test suite. Endpoints:
 
 - POST `/deploy-webhook`  push event from GitHub → enqueue deploy
