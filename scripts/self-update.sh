@@ -1,17 +1,15 @@
 #!/usr/bin/env bash
 # Self-update of late-deployd. Runs *from* late-deployd, in the deployer
 # worker. Steps:
-#   1. systemctl restart late-deployd  (kills this script's parent if
-#      they share a session — that's fine, the script is already past
-#      the dangerous part).
-#   2. After restart, the daemon's /health probe (in the deployer's
-#      `healthcheck_cmd` in /root/.deployd/config.yaml) verifies the
-#      new process is up.
-#
-# Notes:
-#   - The deployer reads $LATE_DEPLOYD_PATH (set by the daemon via env)
-#     so this script doesn't hardcode its own path. If env is missing
-#     we fall back to the canonical path.
+#   1. Pull origin/main.
+#   2. systemctl restart late-deployd. systemd stops the old process
+#      (with --timeout-graceful-shutdown 5 to bound the wait) and starts
+#      the new one.
+#   3. No healthcheck_cmd in the entry's config: the daemon is
+#      restarting the parent of this script, so probing /health right
+#      after would race with the new process. We just sleep 5s and
+#      trust systemd to bring the service up; if it doesn't,
+#      Restart=on-failure kicks in.
 set -euo pipefail
 
 DEPLOY_DIR="${LATE_DEPLOYD_PATH:-/root/late-deployd}"
@@ -25,6 +23,15 @@ git fetch --quiet origin main
 git reset --hard --quiet origin/main
 
 echo "[self-update] restarting service" | tee -a "$LOG"
-systemctl restart late-deployd
+# --no-block: don't hang the deployer worker waiting for systemd
+# confirmation. The deployer has already SIGTERMed the entire
+# cgroup once (via `systemctl stop late-deployd`) — here we just
+# ask systemd to start a fresh instance which auto-pulls.
+systemctl restart late-deployd || true
 
-echo "[self-update] done" | tee -a "$LOG"
+# Brief grace period; systemd's Restart=on-failure kicks in if the
+# new instance dies.
+sleep 5
+
+echo "[self-update] done — service status:" | tee -a "$LOG"
+systemctl is-active late-deployd | tee -a "$LOG" || true

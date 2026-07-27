@@ -70,7 +70,7 @@ WorkingDirectory=$INSTALL_DIR
 EnvironmentFile=$ENV_FILE
 Environment=PYTHONUNBUFFERED=1
 Environment=PATH=/root/.nvm/versions/node/v24.18.0/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
-ExecStart=/bin/bash -c 'cd $INSTALL_DIR && exec $PYTHON_BIN -m uvicorn main:APP --host 127.0.0.1 --port 9200 --proxy-headers'
+ExecStart=$PYTHON_BIN -m uvicorn main:APP --host 127.0.0.1 --port 9200 --proxy-headers --timeout-graceful-shutdown 5
 Restart=on-failure
 RestartSec=5
 
