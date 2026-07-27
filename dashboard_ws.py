@@ -86,20 +86,38 @@ class _Hub:
             self.clients.discard(ws)
 
     async def broadcast(self, payload: dict) -> None:
-        # Send-and-prune: any client whose send raises gets
-        # dropped, so a dead tab can't keep the loop slow.
+        # Send-and-prune, but per-client with a hard timeout so a hung
+        # socket can't stall the next tick. Sequentially awaiting
+        # `send_json` on every client used to add up to seconds per
+        # tick when a browser tab was throttled; with one slow client
+        # it now caps at SEND_TIMEOUT_S (default 1s) and the rest of
+        # the loop continues.
         async with self.lock:
-            stale: list[WebSocket] = []
-            for ws in list(self.clients):
-                try:
-                    await ws.send_json(payload)
-                except Exception:
-                    stale.append(ws)
-            for ws in stale:
-                self.clients.discard(ws)
+            clients = list(self.clients)
+        if not clients:
+            return
+
+        async def _send(ws) -> None:
+            await asyncio.wait_for(ws.send_json(payload), timeout=SEND_TIMEOUT_S)
+
+        results = await asyncio.gather(
+            *[_send(ws) for ws in clients], return_exceptions=True
+        )
+        stale = [ws for ws, r in zip(clients, results) if isinstance(r, BaseException)]
+        if stale:
+            async with self.lock:
+                for ws in stale:
+                    self.clients.discard(ws)
 
 
 HUB = _Hub()
+
+# ponytail: per-client send timeout. A browser tab in the background
+# or a dying TCP connection can hold send_json() for seconds; if we
+# awaited the slow client serially, every other client would lag
+# too. 1 s caps the worst case; raise if dashboards get bigger
+# payloads.
+SEND_TIMEOUT_S: float = 1.0
 
 
 async def _broadcast_loop() -> None:
