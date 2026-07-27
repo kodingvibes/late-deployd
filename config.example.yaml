@@ -1,0 +1,114 @@
+# late-deployd managed repositories.
+#
+# Hot-reloaded on every webhook. Add or remove entries here; no daemon
+# restart needed.
+#
+# Types:
+#   shell_only — git pull + npm run build + cp dist/ to /var/www/html/
+#                + nginx reload. Optionally restarts itself if files
+#                under services/deployd/ changed (the self-update path).
+#   micro      — git pull + run $build_script. If rebuild_shell is true,
+#                also rebuilds the shell and writes dist/ to /var/www/html/.
+#   service    — git pull + run $deploy_script. Optional healthcheck_cmd
+#                runs afterward.
+
+repos:
+
+  # ----- The shell -----
+  late.kodingvibes.com:
+    path: /root/late.kodingvibes.com
+    branch: main
+    url: git@github.com:kodingvibes/late.kodingvibes.com.git
+    type: shell_only
+
+  # ----- Microfronts (each rebuilds the shell on push) -----
+  late-micro-radio:
+    path: /root/late-micro-radio
+    branch: main
+    url: git@github.com:kodingvibes/late-micro-radio.git
+    type: micro
+    micro_name: radio
+    build_script: /root/late.kodingvibes.com/scripts/build-micro-radio.sh
+    rebuild_shell: true
+
+  late-micro-chat:
+    path: /root/late-micro-chat
+    branch: main
+    url: git@github.com:kodingvibes/late-micro-chat.git
+    type: micro
+    micro_name: chat
+    build_script: /root/late.kodingvibes.com/scripts/build-micro-chat.sh
+    rebuild_shell: true
+
+  late-micro-dashboard:
+    path: /root/late-micro-dashboard
+    branch: main
+    url: git@github.com:kodingvibes/late-micro-dashboard.git
+    type: micro
+    micro_name: dashboard
+    build_script: /root/late.kodingvibes.com/scripts/build-micro-dashboard.sh
+    rebuild_shell: true
+
+  late-micro-profiles:
+    path: /root/late-micro-profiles
+    branch: main
+    url: git@github.com:kodingvibes/late-micro-profiles.git
+    type: micro
+    micro_name: profiles
+    build_script: /root/late.kodingvibes.com/scripts/build-micro-profiles.sh
+    rebuild_shell: true
+
+  late-micro-freelance:
+    path: /root/late-micro-freelance
+    branch: main
+    url: git@github.com:kodingvibes/late-micro-freelance.git
+    type: micro
+    micro_name: freelance
+    build_script: /root/late.kodingvibes.com/scripts/build-micro-freelance.sh
+    rebuild_shell: true
+
+  late-micro-games:
+    path: /root/late-micro-games
+    branch: main
+    url: git@github.com:kodingvibes/late-micro-games.git
+    type: micro
+    micro_name: games
+    build_script: /root/late.kodingvibes.com/scripts/build-micro-games.sh
+    rebuild_shell: true
+
+  late-micro-forum:
+    path: /root/late-micro-forum
+    branch: main
+    url: git@github.com:kodingvibes/late-micro-forum.git
+    type: micro
+    micro_name: forum
+    build_script: /root/late.kodingvibes.com/scripts/build-micro-forum.sh
+    rebuild_shell: true
+
+  late-micro-trivia:
+    path: /root/late-micro-trivia
+    branch: main
+    url: git@github.com:kodingvibes/late-micro-trivia.git
+    type: micro
+    micro_name: trivia
+    build_script: /root/late.kodingvibes.com/scripts/build-micro-trivia.sh
+    rebuild_shell: true
+
+  # ----- Backend services -----
+  late-chat-service:
+    path: /root/late-chat-service
+    branch: main
+    url: git@github.com:kodingvibes/late-chat-service.git
+    type: service
+    deploy_script: bash /root/late-chat-service/scripts/deploy.sh
+    healthcheck_url: http://127.0.0.1:9100/healthz
+    healthcheck_cmd: 'for i in {1..30}; do curl -fsS http://127.0.0.1:9100/healthz >/dev/null && exit 0; sleep 1; done; exit 1'
+
+  late-auth-service:
+    path: /root/late-auth-service
+    branch: main
+    url: git@github.com:kodingvibes/late-auth-service.git
+    type: service
+    deploy_script: systemctl restart late-auth
+    healthcheck_url: http://127.0.0.1:9300/api/auth/healthz
+    healthcheck_cmd: 'for i in {1..30}; do curl -fsS http://127.0.0.1:9300/api/auth/healthz >/dev/null && exit 0; sleep 1; done; exit 1'
