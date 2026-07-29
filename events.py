@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
 import sqlite3
 import time
 import uuid
@@ -10,7 +11,7 @@ from threading import Lock
 from typing import Any, Optional
 
 RETENTION_SECONDS = 30 * 86400
-DB_PATH = Path("/root/.deployd/events.db")
+DB_PATH = Path(os.environ.get("DEPOYD_DB_PATH", "/root/.deployd/events.db"))
 
 
 class EventBus:

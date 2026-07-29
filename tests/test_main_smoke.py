@@ -31,6 +31,7 @@ def app_client(monkeypatch, tmp_path):
         "    rebuild_shell: true\n"
     )
     monkeypatch.setenv("DEPOYD_CONFIG", str(cfg_path))
+    monkeypatch.setenv("DEPOYD_DB_PATH", str(tmp_path / "events.db"))
     monkeypatch.setenv("GITHUB_WEBHOOK_SECRET", "smoke-secret")
     monkeypatch.setenv("LOG_DIR", str(tmp_path / "logs"))
     monkeypatch.setenv("LATE_DASHBOARD_HISTORY_DIR", str(tmp_path / "metrics"))
