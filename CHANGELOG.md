@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.1](https://github.com/kodingvibes/late-deployd/compare/v0.1.0...v0.1.1) (2026-07-29)
+
+
+### Bug Fixes
+
+* make DB_PATH configurable via DEPOYD_DB_PATH env var ([40d6b0d](https://github.com/kodingvibes/late-deployd/commit/40d6b0d11f5336fe05507f40cab026127f2365e9))
+
 ## 0.1.0 (2026-07-27)
 
 
