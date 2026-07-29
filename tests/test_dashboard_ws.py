@@ -30,6 +30,7 @@ class FakeWebSocket:
 @pytest.fixture
 def hub_mod(tmp_path, monkeypatch):
     monkeypatch.setenv("DEPOYD_CONFIG", str(tmp_path / "config.yaml"))
+    monkeypatch.setenv("DEPOYD_DB_PATH", str(tmp_path / "events.db"))
     monkeypatch.setenv("GITHUB_WEBHOOK_SECRET", "x")
     monkeypatch.setenv("LOG_DIR", str(tmp_path / "logs"))
     monkeypatch.setenv("LATE_DASHBOARD_HISTORY_DIR", str(tmp_path / "metrics"))
@@ -104,6 +105,7 @@ def dashboard_client(monkeypatch, tmp_path):
     cfg_path = tmp_path / "config.yaml"
     cfg_path.write_text("repos:\n  shellx:\n    path: /tmp/x\n    type: shell_only\n")
     monkeypatch.setenv("DEPOYD_CONFIG", str(cfg_path))
+    monkeypatch.setenv("DEPOYD_DB_PATH", str(tmp_path / "events.db"))
     monkeypatch.setenv("GITHUB_WEBHOOK_SECRET", "x")
     monkeypatch.setenv("LOG_DIR", str(tmp_path / "logs"))
     monkeypatch.setenv("LATE_DASHBOARD_HISTORY_DIR", str(tmp_path / "metrics"))
