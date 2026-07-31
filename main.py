@@ -59,12 +59,20 @@ dashboard_ws.register(APP)
 # HTTP handlers
 # ---------------------------------------------------------------------------
 @APP.get("/health")
-async def health() -> dict:
-    return {
+async def health(poll: Optional[str] = Query(None)) -> dict:
+    body: dict = {
         "ok": True,
         "time": __import__("deployers", fromlist=["now_iso"]).now_iso(),
         "repos": CONFIG.repo_names,
+        "poll_interval": POLLER.interval,
     }
+    if poll == "1":
+        # Manual kick: trigger a poll tick without waiting for the next interval.
+        # Fires-and-forgets so the response is snappy; events land in
+        # /api/deployd/events once the tick finishes.
+        asyncio.create_task(POLLER.tick())
+        body["poll_triggered"] = True
+    return body
 
 
 @APP.get("/logs")

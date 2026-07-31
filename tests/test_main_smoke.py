@@ -57,6 +57,44 @@ def test_health_returns_ok_and_repo_names(app_client):
     body = r.json()
     assert body["ok"] is True
     assert set(body["repos"]) == {"late.kodingvibes.com", "microradio"}
+    assert "poll_interval" in body
+
+
+def test_health_poll_one_triggers_tick(app_client, monkeypatch):
+    client, main = app_client
+    called = {"n": 0}
+
+    async def fake_tick():
+        called["n"] += 1
+
+    monkeypatch.setattr(main.POLLER, "tick", fake_tick)
+    r = client.get("/health?poll=1")
+    assert r.status_code == 200
+    body = r.json()
+    assert body["poll_triggered"] is True
+    # asyncio.create_task runs the coroutine on the loop; the test client uses
+    # the app's loop so the task completes before the response returns. Wait
+    # a beat just in case.
+    import time
+    for _ in range(10):
+        if called["n"]:
+            break
+        time.sleep(0.05)
+    assert called["n"] == 1
+
+
+def test_health_without_poll_does_not_trigger(app_client, monkeypatch):
+    client, main = app_client
+    called = {"n": 0}
+
+    async def fake_tick():
+        called["n"] += 1
+
+    monkeypatch.setattr(main.POLLER, "tick", fake_tick)
+    client.get("/health")
+    client.get("/health?poll=0")
+    client.get("/health?poll=true")  # only the literal "1" triggers
+    assert called["n"] == 0
 
 
 def test_logs_lists_only_recent(app_client):
