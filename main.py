@@ -58,6 +58,9 @@ dashboard_ws.register(APP)
 # ---------------------------------------------------------------------------
 # HTTP handlers
 # ---------------------------------------------------------------------------
+IN_FLIGHT = {"deploy.queued", "deploy.started"}
+
+
 @APP.get("/health")
 async def health(poll: Optional[str] = Query(None)) -> dict:
     body: dict = {
@@ -72,6 +75,46 @@ async def health(poll: Optional[str] = Query(None)) -> dict:
         # /api/deployd/events once the tick finishes.
         asyncio.create_task(POLLER.tick())
         body["poll_triggered"] = True
+
+    # Per-repo deploy status from the events DB.
+    latest = EVENTS.latest_deploys()
+    repos_status: dict[str, dict] = {}
+    in_flight: list[str] = []
+    last_failure_age: Optional[float] = None
+    last_success_age: Optional[float] = None
+    now = __import__("time").time()
+    for repo in CONFIG.repo_names:
+        ev = latest.get(repo)
+        if not ev:
+            repos_status[repo] = {"state": "never_deployed"}
+            continue
+        age = round(now - ev["timestamp"], 1)
+        repos_status[repo] = {
+            "state": ev["type"],
+            "age_seconds": age,
+            "after": ev.get("after", ""),
+            "delivery": ev.get("delivery", ""),
+        }
+        if ev["type"] in IN_FLIGHT:
+            in_flight.append(repo)
+        elif ev["type"] == "deploy.success":
+            last_success_age = age if last_success_age is None else min(last_success_age, age)
+        elif ev["type"] == "deploy.failure":
+            last_failure_age = age if last_failure_age is None else min(last_failure_age, age)
+    body["repos_status"] = repos_status
+    body["in_flight"] = sorted(in_flight)
+    body["last_success_age_seconds"] = last_success_age
+    body["last_failure_age_seconds"] = last_failure_age
+    # Daemon is degraded if there's nothing to do but a worker isn't picking
+    # up queued deploys. We don't have visibility into the queue depth here,
+    # but if a deploy has been "started" longer than 20 minutes, it's stuck.
+    stuck = [
+        repo for repo, s in repos_status.items()
+        if s.get("state") == "deploy.started" and (s.get("age_seconds") or 0) > 1200
+    ]
+    if stuck:
+        body["ok"] = False
+        body["degraded"] = f"deploy.started > 20min: {','.join(stuck)}"
     return body
 
 

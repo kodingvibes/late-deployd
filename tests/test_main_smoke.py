@@ -97,6 +97,42 @@ def test_health_without_poll_does_not_trigger(app_client, monkeypatch):
     assert called["n"] == 0
 
 
+def test_health_reports_repos_status_and_in_flight(app_client):
+    client, main = app_client
+    main.EVENTS.publish("deploy.success", repo="late.kodingvibes.com", delivery="d-1", payload={"after": "abc"})
+    main.EVENTS.publish("deploy.started", repo="microradio", delivery="d-2", payload={"after": "def"})
+
+    r = client.get("/health")
+    body = r.json()
+    assert body["ok"] is True
+    assert body["repos_status"]["late.kodingvibes.com"]["state"] == "deploy.success"
+    assert body["repos_status"]["microradio"]["state"] == "deploy.started"
+    assert body["in_flight"] == ["microradio"]
+
+
+def test_health_flags_stuck_started(app_client, monkeypatch):
+    client, main = app_client
+    main.EVENTS.publish("deploy.started", repo="late.kodingvibes.com", delivery="d-old", payload={"after": "x"})
+    # backdate the event so age > 20min
+    import sqlite3
+    with sqlite3.connect(main.EVENTS._db_path) as conn:  # type: ignore[attr-defined]
+        conn.execute("UPDATE events SET timestamp = ? WHERE delivery = ?", (0.0, "d-old"))
+        conn.commit()
+
+    body = client.get("/health").json()
+    assert body["ok"] is False
+    assert "degraded" in body
+    assert "late.kodingvibes.com" in body["degraded"]
+
+
+def test_health_reports_last_failure_and_success_age(app_client):
+    client, main = app_client
+    main.EVENTS.publish("deploy.failure", repo="microradio", delivery="d-f", payload={"after": "x", "rc": 1})
+    body = client.get("/health").json()
+    assert body["last_failure_age_seconds"] is not None
+    assert body["last_failure_age_seconds"] >= 0
+
+
 def test_logs_lists_only_recent(app_client):
     client, _ = app_client
     r = client.get("/logs")

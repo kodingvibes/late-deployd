@@ -113,3 +113,36 @@ class EventBus:
                 "payload": payload,
             })
         return out
+
+    def latest_deploys(self) -> dict[str, dict]:
+        """Last deploy-related event per repo.
+
+        "Deploy-related" = success, failure, started, queued. Walks events in
+        reverse-chronological order and stops at the first hit per repo, so
+        the reported event reflects the *latest* state we know about.
+        """
+        out: dict[str, dict] = {}
+        try:
+            with sqlite3.connect(str(self._db_path)) as conn:
+                rows = conn.execute(
+                    "SELECT timestamp, repo, type, delivery, payload, event_id "
+                    "FROM events WHERE type IN ('deploy.queued','deploy.started','deploy.success','deploy.failure') "
+                    "ORDER BY id DESC LIMIT 1000"
+                ).fetchall()
+        except Exception:
+            return out
+        for ts, repo, evt_type, delivery, payload_json, event_id in rows:
+            if not repo or repo in out:
+                continue
+            try:
+                payload = json.loads(payload_json) if payload_json else {}
+            except (json.JSONDecodeError, TypeError):
+                payload = {}
+            out[repo] = {
+                "type": evt_type,
+                "timestamp": ts,
+                "delivery": delivery,
+                "event_id": event_id,
+                "after": payload.get("after", ""),
+            }
+        return out

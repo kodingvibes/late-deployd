@@ -123,3 +123,24 @@ def test_event_id_is_unique(events_mod, tmp_path):
         distinct = conn.execute("SELECT COUNT(DISTINCT event_id) FROM events").fetchone()[0]
     assert rows == 10
     assert distinct == 10
+
+
+def test_latest_deploys_returns_most_recent_per_repo(events_mod, tmp_path):
+    bus = events_mod.EventBus(tmp_path / "events.db")
+    bus.publish("deploy.queued", repo="a", delivery="d1", payload={"after": "1"})
+    bus.publish("deploy.success", repo="a", delivery="d1", payload={"after": "1"})
+    bus.publish("deploy.failure", repo="b", delivery="d2", payload={"after": "2", "rc": 1})
+    bus.publish("deploy.started", repo="c", delivery="d3", payload={"after": "3"})
+
+    latest = bus.latest_deploys()
+    assert latest["a"]["type"] == "deploy.success"
+    assert latest["b"]["type"] == "deploy.failure"
+    assert latest["c"]["type"] == "deploy.started"
+    assert latest["a"]["after"] == "1"
+
+
+def test_latest_deploys_ignores_non_deploy_events(events_mod, tmp_path):
+    bus = events_mod.EventBus(tmp_path / "events.db")
+    bus.publish("poll.started", payload={"repos": 1})
+    bus.publish("webhook.received", repo="r", delivery="x")
+    assert bus.latest_deploys() == {}
