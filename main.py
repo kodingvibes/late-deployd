@@ -30,6 +30,7 @@ import dashboard_state  # noqa: F401
 import dashboard_ws  # noqa: F401
 from config import CONFIG_PATH, DeployConfig
 from events import EventBus
+from poller import Poller
 from scheduler import Scheduler
 
 LOG_DIR = Path(os.environ.get("LOG_DIR", "/var/log/late-deployd"))
@@ -48,6 +49,7 @@ logger = logging.getLogger("deployd")
 CONFIG = DeployConfig(CONFIG_PATH)
 EVENTS = EventBus()
 SCHEDULER = Scheduler(CONFIG, EVENTS, max_concurrent=2)
+POLLER = Poller(CONFIG, SCHEDULER, EVENTS)
 
 APP = FastAPI(title="late-deployd")
 dashboard_ws.register(APP)
@@ -198,9 +200,12 @@ async def _startup() -> None:
     EVENTS.set_loop(asyncio.get_event_loop())
     await SCHEDULER.start(n=2)
     logger.info("scheduler started with 2 workers")
+    await POLLER.start()
+    logger.info("poller started (interval=%ss)", POLLER.interval)
 
 
 @APP.on_event("shutdown")
 async def _shutdown() -> None:
+    await POLLER.stop()
     await SCHEDULER.stop()
     logger.info("scheduler stopped")
