@@ -19,7 +19,7 @@ from scheduler import Scheduler
 
 logger = logging.getLogger("deployd")
 
-POLL_INTERVAL = int(os.environ.get("DEPLOYD_POLL_INTERVAL", "600"))  # 10 min default
+POLL_INTERVAL = int(os.environ.get("DEPLOYD_POLL_INTERVAL", "60"))  # 1 min default
 FETCH_TIMEOUT = int(os.environ.get("DEPLOYD_POLL_FETCH_TIMEOUT", "20"))
 
 
