@@ -54,7 +54,7 @@ async def api_dashboard_history(
     range_seconds = dashboard_history.RANGES.get(range)
     if range_seconds is None:
         raise HTTPException(400, f"unknown range: {range}")
-    if metric not in ("cpu", "memory", "swap", "load_1m"):
+    if metric not in ("cpu", "memory", "swap", "load_1m", "listeners", "latency_ms"):
         raise HTTPException(400, f"unknown metric: {metric}")
     samples = await dashboard_state.history(metric, range_seconds)
     return JSONResponse({

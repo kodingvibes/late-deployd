@@ -435,6 +435,6 @@ async def history(metric: str, range_seconds: int) -> list[dict]:
     and the broadcast loops in dashboard_ws.py call this several times
     per tick — running it inline was stalling the event loop.
     """
-    if metric not in ("cpu", "memory", "swap", "load_1m"):
+    if metric not in ("cpu", "memory", "swap", "load_1m", "listeners", "latency_ms"):
         return []
     return await asyncio.to_thread(_history_sync, metric, range_seconds)
