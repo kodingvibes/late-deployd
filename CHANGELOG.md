@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.2.1](https://github.com/kodingvibes/late-deployd/compare/v0.2.0...v0.2.1) (2026-08-01)
+
+
+### Bug Fixes
+
+* **history:** allow listeners and latency_ms as valid metrics ([543aaea](https://github.com/kodingvibes/late-deployd/commit/543aaea53c3c8f3bbe39cfe328304bb302c44fdc))
+* **snapshot:** add missing icecast, deploys, db, streams gatherers ([1f9ea7e](https://github.com/kodingvibes/late-deployd/commit/1f9ea7ec59044e014136c5de781eb339cdbaae7d))
+* **ws:** accept WebSocket before auth validation ([64d4b59](https://github.com/kodingvibes/late-deployd/commit/64d4b59b7c0f15ddc719cde1cd1d4ad49d1b015c))
+
 ## [0.2.0](https://github.com/kodingvibes/late-deployd/compare/v0.1.1...v0.2.0) (2026-07-31)
 
 
