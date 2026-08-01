@@ -398,8 +398,9 @@ async def g_icecast() -> dict:
         return {"ok": False, "sources": [], "total_listeners": 0}
 
 
-async def g_deploys() -> dict:
-    """Gather latest deploy events."""
+async def g_deploys() -> list:
+    """Gather latest deploy events. Returns a flat list so
+    snapshot() merges it directly as state.deploys (array)."""
     from events import EVENTS
     try:
         latest = EVENTS.latest_deploys()
@@ -412,9 +413,9 @@ async def g_deploys() -> dict:
                 "commit": info.get("after", ""),
             })
         deploys.sort(key=lambda d: d["mtime"], reverse=True)
-        return {"deploys": deploys}
+        return deploys
     except Exception:
-        return {"deploys": []}
+        return []
 
 
 async def g_db() -> dict:
@@ -447,17 +448,13 @@ async def g_db() -> dict:
     return {"auth_db": auth, "chat_db": chat}
 
 
-async def g_streams() -> dict:
-    """Return the static stream list."""
-    return {
-        "streams": [
-            {"mount": m, "label": l}
-            for m, l in STREAMS
-        ]
-    }
+async def g_streams() -> list:
+    """Return the static stream list as a flat list so
+    snapshot() merges it directly as state.streams (array)."""
+    return [{"mount": m, "label": l} for m, l in STREAMS]
 
 
-GATHERERS: list[tuple[str, Callable[[], Awaitable[dict]]]] = [
+GATHERERS: list[tuple[str, Callable[[], Awaitable[dict | list]]]] = [
     ("system", g_system),
     ("services", g_service_health),
     ("docker", g_docker),
@@ -468,7 +465,7 @@ GATHERERS: list[tuple[str, Callable[[], Awaitable[dict]]]] = [
 ]
 
 
-async def _one(name: str, fn) -> tuple[str, dict]:
+async def _one(name: str, fn) -> tuple[str, dict | list]:
     try:
         return name, await asyncio.wait_for(fn(), timeout=GATHER_TIMEOUT_S)
     except (asyncio.TimeoutError, Exception) as e:

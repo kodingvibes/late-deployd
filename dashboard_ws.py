@@ -215,13 +215,20 @@ _BROADCAST_FAST_TASK: asyncio.Task | None = None
 async def api_dashboard_ws(websocket: WebSocket, token: str = Query("")) -> None:
     """Authenticated WebSocket feed.
 
-    Browsers can't set Authorization on a WebSocket, so the
-    bearer comes in as `?token=`. The endpoint opens the WS,
-    then validates synchronously, then drops the connection
-    if the bearer is bad.
+    The bearer token is sent via the first subprotocol in the
+    Sec-WebSocket-Protocol header (browsers can't set custom
+    headers on a WebSocket upgrade, but subprotocols are the
+    standard workaround). The ?token= query param is kept as
+    a fallback for legacy clients.
     """
-    await websocket.accept()
-    if not token or not dashboard_state.LATE_AUTH_SECRET:
+    # Read token from subprotocol first, fall back to query param.
+    subprotocols = websocket.headers.get("sec-websocket-protocol", "")
+    parts = [p.strip() for p in subprotocols.split(",") if p.strip()]
+    subproto_token = parts[1] if len(parts) >= 2 and parts[0] == "dashboard" else ""
+    bearer = subproto_token or token
+
+    await websocket.accept(subprotocol=parts[0] if parts else None)
+    if not bearer or not dashboard_state.LATE_AUTH_SECRET:
         await websocket.close(code=4401)
         return
     import httpx
