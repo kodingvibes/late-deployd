@@ -20,7 +20,7 @@ class FakeRepoConfig:
 def poller_mod(tmp_path, monkeypatch):
     monkeypatch.setenv("DEPOYD_CONFIG", str(tmp_path / "config.yaml"))
     for m in list(sys.modules.keys()):
-        if m.startswith(("config", "events", "deployers", "scheduler", "poller", "dashboard", "main")):
+        if m.startswith(("config", "events", "deployers", "scheduler", "poller", "main")):
             sys.modules.pop(m, None)
     return importlib.import_module("poller")
 

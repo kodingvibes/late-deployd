@@ -25,13 +25,14 @@ from typing import Optional
 
 from fastapi import FastAPI, Header, HTTPException, Query, Request, WebSocket, WebSocketDisconnect
 
-import dashboard_history  # noqa: F401
-import dashboard_state  # noqa: F401
-import dashboard_ws  # noqa: F401
 from config import CONFIG_PATH, DeployConfig
 from events import EventBus
 from poller import Poller
 from scheduler import Scheduler
+
+# Auth constants (moved from deleted dashboard_state.py)
+LATE_AUTH_URL = os.environ.get("LATE_AUTH_URL", "http://127.0.0.1:9300")
+LATE_AUTH_SECRET = os.environ.get("LATE_AUTH_SECRET", "")
 
 LOG_DIR = Path(os.environ.get("LOG_DIR", "/var/log/late-deployd"))
 LOG_DIR.mkdir(parents=True, exist_ok=True)
@@ -52,7 +53,6 @@ SCHEDULER = Scheduler(CONFIG, EVENTS, max_concurrent=2)
 POLLER = Poller(CONFIG, SCHEDULER, EVENTS)
 
 APP = FastAPI(title="late-deployd")
-dashboard_ws.register(APP)
 
 
 # ---------------------------------------------------------------------------
@@ -144,16 +144,16 @@ async def get_events(
 
 @APP.websocket("/api/deployd/events/ws")
 async def events_ws(websocket: WebSocket, token: str = Query("")) -> None:
-    if not token or not dashboard_state.LATE_AUTH_SECRET:
+    if not token or not LATE_AUTH_SECRET:
         await websocket.close(code=4401)
         return
     import httpx
     try:
         async with httpx.AsyncClient(timeout=3.0) as client:
             r = await client.get(
-                f"{dashboard_state.LATE_AUTH_URL}/api/auth/validate",
+                f"{LATE_AUTH_URL}/api/auth/validate",
                 headers={
-                    "Authorization": f"Bearer {dashboard_state.LATE_AUTH_SECRET}",
+                    "Authorization": f"Bearer {LATE_AUTH_SECRET}",
                     "X-Session-Id": token,
                 },
             )

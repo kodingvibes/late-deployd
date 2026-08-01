@@ -19,7 +19,7 @@ def deployers(monkeypatch, tmp_path):
     Path(tmp_path / "logs").mkdir(parents=True, exist_ok=True)
     Path(tmp_path / "shell").mkdir(parents=True, exist_ok=True)
     for m in list(sys.modules.keys()):
-        if m.startswith(("config", "events", "deployers", "scheduler", "dashboard", "main")):
+        if m.startswith(("config", "events", "deployers", "scheduler", "main")):
             sys.modules.pop(m, None)
     return importlib.import_module("deployers")
 

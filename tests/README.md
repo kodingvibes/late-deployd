@@ -32,5 +32,5 @@ test stack). No external services required.
 ## Style
 
 Each test sets its own `monkeypatch` env vars (`GITHUB_WEBHOOK_SECRET`,
-`LOG_DIR`, `DEPOYD_CONFIG`, `LATE_DASHBOARD_HISTORY_DIR`) before importing
-modules, so individual tests don't bleed state into each other.
+`LOG_DIR`, `DEPOYD_CONFIG`) before importing modules, so individual tests
+don't bleed state into each other.

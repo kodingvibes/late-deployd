@@ -15,7 +15,7 @@ import pytest
 def events_mod(tmp_path, monkeypatch):
     monkeypatch.setattr(events_module_default := sys.modules.get("events"), "DB_PATH", tmp_path / "events.db") if False else None
     for m in list(sys.modules.keys()):
-        if m.startswith(("config", "events", "deployers", "scheduler", "dashboard", "main")):
+        if m.startswith(("config", "events", "deployers", "scheduler", "main")):
             sys.modules.pop(m, None)
     mod = importlib.import_module("events")
     monkeypatch.setattr(mod, "RETENTION_SECONDS", 30 * 24 * 3600, raising=False)

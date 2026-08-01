@@ -25,9 +25,6 @@ See `tests/` for the test suite. Endpoints:
 - GET  `/logs`            recent deploy log filenames
 - GET  `/api/deployd/events` recent events (filterable by `?repo=` and `?type=`)
 - WS   `/api/deployd/events/ws` live stream (super_admin auth)
-- GET  `/api/dashboard/state`  super_admin snapshot
-- GET  `/api/dashboard/history` super_admin time-series samples
-- WS   `/api/dashboard/ws`      super_admin gauge/feed
 
 Poller events (same `/api/deployd/events` endpoint, filtered by `?type=`):
 

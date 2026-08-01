@@ -34,12 +34,10 @@ def app_client(monkeypatch, tmp_path):
     monkeypatch.setenv("DEPOYD_DB_PATH", str(tmp_path / "events.db"))
     monkeypatch.setenv("GITHUB_WEBHOOK_SECRET", "smoke-secret")
     monkeypatch.setenv("LOG_DIR", str(tmp_path / "logs"))
-    monkeypatch.setenv("LATE_DASHBOARD_HISTORY_DIR", str(tmp_path / "metrics"))
     monkeypatch.setenv("LATE_AUTH_SECRET", "")
     (tmp_path / "logs").mkdir(parents=True, exist_ok=True)
-    (tmp_path / "metrics").mkdir(parents=True, exist_ok=True)
     for m in list(sys.modules.keys()):
-        if m.startswith(("config", "events", "deployers", "scheduler", "dashboard", "main")):
+        if m.startswith(("config", "events", "deployers", "scheduler", "main")):
             sys.modules.pop(m, None)
     main = importlib.import_module("main")
     with TestClient(main.APP) as client:

@@ -14,7 +14,7 @@ MOD = "deployers"
 @pytest.fixture
 def deployers(monkeypatch):
     monkeypatch.setenv("GITHUB_WEBHOOK_SECRET", "s3cret-test")
-    for m in [MOD, "config", "events", "scheduler", "dashboard_state", "dashboard_history", "dashboard_ws", "main"]:
+    for m in [MOD, "config", "events", "scheduler", "main"]:
         sys.modules.pop(m, None)
     return importlib.import_module(MOD)
 

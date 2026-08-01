@@ -13,7 +13,7 @@ import pytest
 def config_mod(tmp_path, monkeypatch):
     monkeypatch.setenv("DEPOYD_CONFIG", str(tmp_path / "config.yaml"))
     for m in list(sys.modules.keys()):
-        if m.startswith(("config", "events", "deployers", "scheduler", "dashboard", "main")):
+        if m.startswith(("config", "events", "deployers", "scheduler", "main")):
             sys.modules.pop(m, None)
     return importlib.import_module("config")
 

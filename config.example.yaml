@@ -40,15 +40,6 @@ repos:
     build_script: /root/late.kodingvibes.com/scripts/build-micro-chat.sh
     rebuild_shell: true
 
-  late-micro-dashboard:
-    path: /root/late-micro-dashboard
-    branch: main
-    url: git@github.com:kodingvibes/late-micro-dashboard.git
-    type: micro
-    micro_name: dashboard
-    build_script: /root/late.kodingvibes.com/scripts/build-micro-dashboard.sh
-    rebuild_shell: true
-
   late-micro-profiles:
     path: /root/late-micro-profiles
     branch: main
