@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.2](https://github.com/kodingvibes/late-deployd/compare/v0.2.1...v0.2.2) (2026-08-01)
+
+
+### Bug Fixes
+
+* **dashboard:** return deploys and streams as flat lists, move WS auth to subprotocol ([69b3dde](https://github.com/kodingvibes/late-deployd/commit/69b3dde220ab5a3985cd21fd3ca90baaf3557c6b))
+
 ## [0.2.1](https://github.com/kodingvibes/late-deployd/compare/v0.2.0...v0.2.1) (2026-08-01)
 
 
