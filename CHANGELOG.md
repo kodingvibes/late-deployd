@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.2.0](https://github.com/kodingvibes/late-deployd/compare/v0.1.1...v0.2.0) (2026-07-31)
+
+
+### Features
+
+* **health:** expose poll_interval + manual tick via ?poll=1 ([827177e](https://github.com/kodingvibes/late-deployd/commit/827177e94abbf72ab4ace10a3a2f9bd763ecf98e))
+* **health:** surface deploy state per repo and stuck-deployed detection ([1ac519d](https://github.com/kodingvibes/late-deployd/commit/1ac519d2b8597d3108c8929eee57cc8b14f0944f))
+* poll origin every 10min and auto-deploy drifted repos ([85d30f0](https://github.com/kodingvibes/late-deployd/commit/85d30f0fa967c929a1d921fb6957a65a2fe002b8))
+
 ## [0.1.1](https://github.com/kodingvibes/late-deployd/compare/v0.1.0...v0.1.1) (2026-07-29)
 
 
