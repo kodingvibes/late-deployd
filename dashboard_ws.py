@@ -220,6 +220,7 @@ async def api_dashboard_ws(websocket: WebSocket, token: str = Query("")) -> None
     then validates synchronously, then drops the connection
     if the bearer is bad.
     """
+    await websocket.accept()
     if not token or not dashboard_state.LATE_AUTH_SECRET:
         await websocket.close(code=4401)
         return
@@ -244,8 +245,6 @@ async def api_dashboard_ws(websocket: WebSocket, token: str = Query("")) -> None
     if user.get("global_role") != "super_admin":
         await websocket.close(code=4403)
         return
-
-    await websocket.accept()
     await HUB.add(websocket)
     # ponytail: send initial snapshot immediately so the dashboard
     # doesn't sit empty for up to BROADCAST_INTERVAL_S (30s).
