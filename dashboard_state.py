@@ -368,10 +368,103 @@ async def g_docker() -> dict:
 # ---------------------------------------------------------------------------
 # Snapshot + history (read paths exposed to the WS / REST).
 # ---------------------------------------------------------------------------
+async def g_icecast() -> dict:
+    """Gather icecast status from /status-json.xsl."""
+    import httpx
+    try:
+        async with httpx.AsyncClient(timeout=2.0) as client:
+            r = await client.get(f"{ICECAST_URL}/status-json.xsl")
+        if r.status_code != 200:
+            return {"ok": False, "sources": [], "total_listeners": 0}
+        data = r.json()
+        ic = data.get("icestats", {}) or {}
+        sources_raw = ic.get("source", []) or []
+        if isinstance(sources_raw, dict):
+            sources_raw = [sources_raw]
+        sources = []
+        total = 0
+        for s in sources_raw:
+            if not isinstance(s, dict):
+                continue
+            mount = (s.get("server_name", "") or "").strip()
+            if not mount:
+                mount = (s.get("listenurl", "") or "").rsplit("/", 1)[-1]
+            listeners = int(s.get("listeners", 0) or 0)
+            title = (s.get("server_description", "") or "").strip()
+            sources.append({"mount": mount, "listeners": listeners, "title": title})
+            total += listeners
+        return {"ok": True, "sources": sources, "total_listeners": total}
+    except Exception:
+        return {"ok": False, "sources": [], "total_listeners": 0}
+
+
+async def g_deploys() -> dict:
+    """Gather latest deploy events."""
+    from events import EVENTS
+    try:
+        latest = EVENTS.latest_deploys()
+        deploys = []
+        for repo, info in latest.items():
+            deploys.append({
+                "file": f"{repo}.log",
+                "mtime": info.get("timestamp", 0),
+                "ok": info.get("type") == "deploy.success",
+                "commit": info.get("after", ""),
+            })
+        deploys.sort(key=lambda d: d["mtime"], reverse=True)
+        return {"deploys": deploys}
+    except Exception:
+        return {"deploys": []}
+
+
+async def g_db() -> dict:
+    """Gather database sizes and counts."""
+    def _db_info(path: str) -> dict:
+        try:
+            size = os.path.getsize(path)
+        except OSError:
+            size = 0
+        counts: dict[str, int] = {}
+        try:
+            with sqlite3.connect(path, timeout=2) as conn:
+                tables = conn.execute(
+                    "SELECT name FROM sqlite_master WHERE type='table'"
+                ).fetchall()
+                for (tname,) in tables:
+                    try:
+                        (cnt,) = conn.execute(f"SELECT COUNT(*) FROM \"{tname}\"").fetchone() or (0,)
+                        counts[tname] = cnt
+                    except Exception:
+                        pass
+        except Exception:
+            pass
+        return {"bytes": size, "counts": counts}
+
+    auth, chat = await asyncio.gather(
+        asyncio.to_thread(lambda: _db_info(DB_AUTH)),
+        asyncio.to_thread(lambda: _db_info(DB_CHAT)),
+    )
+    return {"auth_db": auth, "chat_db": chat}
+
+
+async def g_streams() -> dict:
+    """Return the static stream list."""
+    return {
+        "streams": [
+            {"mount": m, "label": l}
+            for m, l in STREAMS
+        ]
+    }
+
+
 GATHERERS: list[tuple[str, Callable[[], Awaitable[dict]]]] = [
     ("system", g_system),
     ("services", g_service_health),
     ("docker", g_docker),
+    ("icecast", g_icecast),
+    ("deploys", g_deploys),
+    ("db", g_db),
+    ("streams", g_streams),
 ]
 
 
